@@ -252,7 +252,7 @@ shub:share 只显示端口，不显示本机 IP：绑定地址为 0.0.0.0，监�
 shub:shared 只查当前 shub 进程内的共享状态。其他进程（另一个 shub 实例、IPOP 等）持有的串口共享或端口占用，本命令看不到。想确认某个 COM 口是否被别的程序占用，试 shub:open comX：如果打开失败并提示“端口已被占用”，说明有其他程序在占用。
 终端内所有面向用户的文本为英文，日志文件仍为中文；如果需要本地化，直接改 commands.py 和 handlers*.py 里的字符串即可。
 
-## 8. 验证顺序
+## 7. 验证顺序
 
 shub:ports — 看可用 COM 口。
 shub:open comX --newline cr — 针对 letter-shell 类设备打开串口，敲回车确认只打印一次 gd32device>。
