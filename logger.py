@@ -1,5 +1,5 @@
 # 文件名: logger.py
-"""日志：滚动文件日志 + 控制台仅 WARNING 以上。"""
+"""Logging: rolling file log + console output for WARNING and above."""
 
 import logging
 import os

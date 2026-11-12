@@ -1,0 +1,26 @@
+shub/
+├── main.py
+├── config.py
+├── logger.py
+├── profiles.py
+├── README.md
+├── requirements.txt
+├── core/
+│   ├── __init__.py
+│   ├── errors.py
+│   ├── handshake.py
+│   ├── session_protocol.py
+│   ├── serial_session.py
+│   ├── tcp_server.py
+│   ├── tcp_client.py
+│   ├── serve_runner.py
+│   ├── connect_runner.py
+│   └── repl.py
+├── profiles/
+│   ├── gd32.json
+│   └── lab-server.json
+└── tests/
+    ├── __init__.py
+    ├── test_profiles.py
+    ├── test_handshake.py
+    └── test_tcp_server.py

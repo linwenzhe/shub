@@ -6,4 +6,5 @@ logs/
 .venv/
 venv/
 temp/
+v1.0/
 
