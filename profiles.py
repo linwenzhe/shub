@@ -1,5 +1,5 @@
 # 文件名: profiles.py
-"""Read-only loader for hand-written JSON profiles under profiles/.
+"""Read and write JSON profiles under profiles/.
 
 All failures raise ProfileError so the REPL can catch one exception type.
 """
@@ -49,6 +49,29 @@ def load_profile(name):
     if data["type"] not in ("serve", "connect"):
         raise ProfileError(f"Unknown profile type '{data['type']}' in {full}")
     return data
+
+
+def save_profile(name, data):
+    """Write a profile JSON. Returns (full_path, existed).
+
+    Overwrites an existing file with the same name. The caller is expected
+    to print a message using the existed flag.
+    """
+    name = (name or "").strip()
+    if not name:
+        raise ProfileError("Empty profile name")
+    if not name.lower().endswith(PROFILE_EXT):
+        name += PROFILE_EXT
+    full = os.path.join(profiles_dir(), name)
+    os.makedirs(profiles_dir(), exist_ok=True)
+    existed = os.path.exists(full)
+    try:
+        with open(full, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+            f.write("\n")
+    except OSError as e:
+        raise ProfileError(f"Cannot write {full}: {e}")
+    return full, existed
 
 
 def require_fields(data, *fields):

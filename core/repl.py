@@ -10,6 +10,7 @@ Commands:
     unshare <port>                     Stop sharing a COM port
     connect <ip:port> --local <port>   Forward a remote serial locally
     load <profile>                     Start from a profile file
+    save <profile> [job | -l]          Save a running job as a profile
     list                               Show all running jobs
     help                               Show help
     exit                               Stop all jobs and quit
@@ -29,7 +30,9 @@ from core.errors import ShubError
 from core.serial_session import list_available_ports
 from core.serve_runner import ServeRunner
 from core.connect_runner import ConnectRunner
-from profiles import load_profile, require_fields, password_from_profile
+from profiles import (
+    load_profile, save_profile, require_fields, password_from_profile,
+)
 from logger import log
 
 
@@ -43,6 +46,7 @@ def _banner():
     unshare <port>                          Stop sharing a COM port
     connect <ip:port> --local <port>        Forward a remote serial locally
     load <profile>                          Start from a profile file
+    save <profile> [job | -l]               Save a running job as a profile
     list                                    Show all running jobs
     help                                    Show this message
     exit                                    Stop all jobs and quit
@@ -128,7 +132,7 @@ class Repl:
         )
         sub = parser.add_subparsers(dest="cmd", parser_class=ShubParser)
 
-        share = sub.add_parser("share", aliases=["serve"],
+        share = sub.add_parser("share",
                                help="Share a local COM port over TCP.")
         share.add_argument("serial_port", help="e.g. COM5")
         share.add_argument("--tcp", type=int, required=True,
@@ -266,7 +270,7 @@ class Repl:
 
     def _cmd_share(self, line):
         ns = self._parse(line)
-        if not ns or ns.cmd not in ("share", "serve"):
+        if not ns or ns.cmd != "share":
             return
         cfg = build_serial_cfg(
             baudrate=ns.baud,
@@ -324,6 +328,115 @@ class Repl:
             self._start_connect(
                 data["remote"], int(data["local_port"]), password)
 
+    def _job_to_profile(self, job):
+        """Extract a profile dict from a running job's runner.
+
+        The profile type is chosen by the job kind:
+        - share   -> "type": "serve"   (serial + TCP + password)
+        - connect -> "type": "connect" (remote + local port + password)
+        """
+        runner = job.runner
+        if job.kind == "share":
+            data = {
+                "type": "serve",
+                "serial_port": runner.serial_port,
+                "baudrate": runner.cfg.get("baudrate", BAUDRATE),
+                "bytesize": runner.cfg.get("bytesize", BYTESIZE),
+                "parity": runner.cfg.get("parity", PARITY),
+                "stopbits": runner.cfg.get("stopbits", STOPBITS),
+                "flow": runner.cfg.get("flow", FLOW),
+                "tcp_port": runner.tcp_port,
+            }
+            if runner.password is None:
+                data["no_password"] = True
+            else:
+                data["password"] = runner.password
+            return data
+        else:  # connect
+            data = {
+                "type": "connect",
+                "remote": runner.remote,
+                "local_port": runner.local_port,
+            }
+            if runner.password is None:
+                data["no_password"] = True
+            else:
+                data["password"] = runner.password
+            return data
+
+    def _cmd_save(self, line):
+        parts = shlex.split(line)
+        if not parts:
+            print("  usage: save <profile_name> [job_name | -l]")
+            return
+        profile_name = parts[0]
+
+        job = None
+        latest = False
+
+        if len(parts) >= 2:
+            arg = parts[1]
+            if arg == "-l":
+                latest = True
+                if len(parts) > 2:
+                    print("  error: cannot combine '-l' with a job name.")
+                    return
+            else:
+                with self._lock:
+                    job = self.jobs.get(arg)
+                if not job:
+                    print(f"  error: no job named {arg}")
+                    return
+        else:
+            with self._lock:
+                jobs = list(self.jobs.values())
+            if not jobs:
+                print("  error: no jobs to save. Start one with 'share' "
+                      "or 'connect' first.")
+                return
+            if len(jobs) == 1:
+                job = jobs[0]
+            else:
+                latest_job = max(jobs, key=lambda j: j.started_at)
+                print("  error: multiple jobs are running. "
+                      "Specify which job to save:")
+                print(f"    save {profile_name} -l"
+                      f"                 (most recent: {latest_job.name})")
+                for j in jobs:
+                    print(f"    save {profile_name} {j.name}")
+                print("  Use 'list' to see all jobs.")
+                return
+
+        if latest:
+            with self._lock:
+                jobs = list(self.jobs.values())
+            if not jobs:
+                print("  error: no jobs to save. Start one with 'share' "
+                      "or 'connect' first.")
+                return
+            job = max(jobs, key=lambda j: j.started_at)
+
+        try:
+            data = self._job_to_profile(job)
+            full, existed = save_profile(profile_name, data)
+        except ShubError as e:
+            print(f"  error: {e}")
+            log.error("REPL save failed: %s", e, exc_info=True)
+            return
+
+        action = "overwrote" if existed else "created"
+        typ = data["type"]
+        if typ == "serve":
+            summary = (f"serve: {data['serial_port']} "
+                       f"-> tcp:{data['tcp_port']}")
+        else:
+            summary = (f"connect: {data['remote']} "
+                       f"-> 127.0.0.1:{data['local_port']}")
+
+        suffix = "   (most recent)" if latest else ""
+        print(f"  {action} {full}")
+        print(f"    {summary}{suffix}")
+
     def _cmd_unshare(self, line):
         parts = shlex.split(line)
         if not parts:
@@ -359,7 +472,7 @@ class Repl:
         if head == "list":
             self._cmd_list()
             return True
-        if head in ("share", "serve"):
+        if head == "share":
             self._cmd_share(line)
             return True
         if head == "unshare":
@@ -370,6 +483,9 @@ class Repl:
             return True
         if head == "load":
             self._cmd_load(line)
+            return True
+        if head == "save":
+            self._cmd_save(rest)
             return True
 
         print(f"  unknown command: {head}. Type 'help'.")
