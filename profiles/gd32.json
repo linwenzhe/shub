@@ -1,11 +1,9 @@
 {
-  "type": "serve",
   "serial_port": "COM5",
   "baudrate": 115200,
   "bytesize": 8,
   "parity": "N",
   "stopbits": 1,
   "flow": "none",
-  "tcp_port": 1000,
-  "password": "123456"
+  "tcp_port": 1000
 }

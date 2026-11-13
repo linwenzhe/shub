@@ -1,0 +1,9 @@
+{
+  "serial_port": "COM7",
+  "baudrate": 115200,
+  "bytesize": 8,
+  "parity": "N",
+  "stopbits": 1,
+  "flow": "none",
+  "tcp_port": 1001
+}

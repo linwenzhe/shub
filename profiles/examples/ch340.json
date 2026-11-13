@@ -1,0 +1,8 @@
+{
+  "serial_port": "COM5",
+  "baudrate": 115200,
+  "bytesize": 8,
+  "parity": "N",
+  "stopbits": 1,
+  "flow": "none"
+}

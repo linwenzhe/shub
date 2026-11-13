@@ -1,26 +1,54 @@
 shub/
 ├── main.py
-├── config.py
+├── build.py
+├── config/
+│   ├── __init__.py
+│   ├── serial.py
+│   ├── tcp.py
+│   └── log.py
 ├── logger.py
 ├── profiles.py
 ├── README.md
+├── CHANGELOG.md
 ├── requirements.txt
 ├── core/
 │   ├── __init__.py
 │   ├── errors.py
-│   ├── handshake.py
 │   ├── session_protocol.py
 │   ├── serial_session.py
 │   ├── tcp_server.py
-│   ├── tcp_client.py
 │   ├── serve_runner.py
-│   ├── connect_runner.py
+│   ├── line_reader.py
+│   ├── job.py
+│   ├── save_service.py
+│   ├── save_parser.py
+│   ├── share_args.py
 │   └── repl.py
 ├── profiles/
 │   ├── gd32.json
-│   └── lab-server.json
+│   └── examples/
+│       ├── stm32.json
+│       ├── esp32.json
+│       └── ch340.json
+├── docs/
+│   ├── commands.md
+│   ├── profiles.md
+│   ├── mobaxterm.md
+│   ├── deploy.md
+│   ├── logging.md
+│   ├── faq.md
+│   ├── limits.md
+│   ├── security.md
+│   ├── architecture.md
+│   ├── testing.md
+│   ├── troubleshooting.md
+│   ├── checklist.md
+│   └── dataflow.md
 └── tests/
     ├── __init__.py
     ├── test_profiles.py
-    ├── test_handshake.py
+    ├── test_save_service.py
+    ├── test_save_parser.py
+    ├── test_share_args.py
+    ├── test_serve_runner.py
     └── test_tcp_server.py

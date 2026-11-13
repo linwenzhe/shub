@@ -1,6 +1,0 @@
-{
-  "type": "connect",
-  "remote": "192.168.1.100:1000",
-  "local_port": 2000,
-  "password": "123456"
-}

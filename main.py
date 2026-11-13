@@ -5,8 +5,6 @@ Run `python main.py` (or `shub.exe`) to get a `shub>` prompt. All
 commands are typed there; there is no one-shot CLI mode.
 """
 
-import sys
-
 from core.repl import Repl
 
 

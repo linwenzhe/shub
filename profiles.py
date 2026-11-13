@@ -1,7 +1,15 @@
 # 文件名: profiles.py
 """Read and write JSON profiles under profiles/.
 
-All failures raise ProfileError so the REPL can catch one exception type.
+A profile describes a single shared COM port. serial_port is required;
+tcp_port is optional (omit it to let shub pick a free port). The rest
+fall back to defaults from config/.
+
+Profile names are file-name only: no path separators, no "..", no
+absolute paths. The final path is additionally checked to stay under
+profiles/ after resolving symlinks and "..".
+
+All failures raise ProfileError.
 """
 
 import json
@@ -24,13 +32,45 @@ def profiles_dir():
     return os.path.join(_app_dir(), PROFILES_DIRNAME)
 
 
-def load_profile(name):
-    name = (name or "").strip()
+def _reject_path_components(name):
     if not name:
         raise ProfileError("Empty profile name")
+    if "/" in name or "\\" in name:
+        raise ProfileError(
+            f"Invalid profile name: {name!r}. "
+            "Path separators are not allowed.")
+    if ".." in name:
+        raise ProfileError(
+            f"Invalid profile name: {name!r}. "
+            "'..' is not allowed.")
+    if os.path.isabs(name):
+        raise ProfileError(
+            f"Invalid profile name: {name!r}. "
+            "Absolute paths are not allowed.")
+
+
+def _ensure_under_profiles(full):
+    base = os.path.realpath(profiles_dir())
+    resolved = os.path.realpath(full)
+    if not (resolved == base or resolved.startswith(base + os.sep)):
+        raise ProfileError(
+            f"Path escapes profiles directory: {full}")
+    return resolved
+
+
+def profile_path(name):
+    name = (name or "").strip()
+    _reject_path_components(name)
+
     if not name.lower().endswith(PROFILE_EXT):
         name += PROFILE_EXT
+
     full = os.path.join(profiles_dir(), name)
+    return _ensure_under_profiles(full)
+
+
+def load_profile(name):
+    full = profile_path(name)
     if not os.path.exists(full):
         raise ProfileError(f"Profile not found: {full}")
 
@@ -39,30 +79,19 @@ def load_profile(name):
             data = json.load(f)
     except json.JSONDecodeError as e:
         raise ProfileError(f"Invalid JSON in {full}: {e}")
+    except UnicodeError as e:
+        raise ProfileError(
+            f"Profile is not valid UTF-8: {full}: {e}")
     except OSError as e:
         raise ProfileError(f"Cannot read {full}: {e}")
 
     if not isinstance(data, dict):
         raise ProfileError(f"Profile must be a JSON object: {full}")
-    if "type" not in data:
-        raise ProfileError(f"Profile missing 'type' field: {full}")
-    if data["type"] not in ("serve", "connect"):
-        raise ProfileError(f"Unknown profile type '{data['type']}' in {full}")
     return data
 
 
 def save_profile(name, data):
-    """Write a profile JSON. Returns (full_path, existed).
-
-    Overwrites an existing file with the same name. The caller is expected
-    to print a message using the existed flag.
-    """
-    name = (name or "").strip()
-    if not name:
-        raise ProfileError("Empty profile name")
-    if not name.lower().endswith(PROFILE_EXT):
-        name += PROFILE_EXT
-    full = os.path.join(profiles_dir(), name)
+    full = profile_path(name)
     os.makedirs(profiles_dir(), exist_ok=True)
     existed = os.path.exists(full)
     try:
@@ -78,11 +107,3 @@ def require_fields(data, *fields):
     for f in fields:
         if f not in data or data[f] in (None, ""):
             raise ProfileError(f"Profile missing required field: {f}")
-
-
-def password_from_profile(data):
-    """Return None if no_password is true, else the password (or default)."""
-    if data.get("no_password"):
-        return None
-    from config import DEFAULT_PASSWORD
-    return str(data.get("password", DEFAULT_PASSWORD))

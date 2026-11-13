@@ -1,22 +1,12 @@
-# 文件名: config.py
-"""shub configuration: serial defaults and a builder for runtime cfg dicts."""
+# 文件名: config/serial.py
+"""Serial port defaults and the runtime cfg builder."""
 
-# ---------- Serial defaults ----------
 BAUDRATE = 115200
 BYTESIZE = 8
 PARITY = "N"          # N / E / O / M / S
 STOPBITS = 1
 FLOW = "none"         # none / rts / xon
 READ_TIMEOUT = 0.05
-
-# ---------- Sharing ----------
-DEFAULT_PASSWORD = "123456"
-
-# ---------- Logging ----------
-LOG_DIR = "logs"
-LOG_LEVEL = "INFO"
-LOG_MAX_BYTES = 2 * 1024 * 1024
-LOG_BACKUP_COUNT = 3
 
 
 def build_serial_cfg(**overrides):

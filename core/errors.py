@@ -16,4 +16,4 @@ class SerialPortError(ShubError):
 
 
 class TcpError(ShubError):
-    """TCP bind, listen, or handshake failed."""
+    """TCP bind or listen failed."""

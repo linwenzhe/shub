@@ -1,10 +1,5 @@
 # 文件名: core/session_protocol.py
-"""Structural interface that TcpSerialServer depends on.
-
-Using Protocol instead of duck typing makes the required methods explicit
-for type checkers and for anyone writing an alternative implementation
-(e.g. a PTY session or a test mock).
-"""
+"""Structural interface that TcpSerialServer depends on."""
 
 from typing import Any, Protocol
 

@@ -4,6 +4,10 @@
 Byte-oriented: the caller supplies raw bytes and they are written to the
 serial port unchanged. No newline handling here; the terminal on the other
 side decides line endings.
+
+Read-thread failures are recorded in an internal Event and exposed via
+wait_error()/error so ServeRunner can tear the job down instead of leaving
+it displayed as "running".
 """
 
 import queue
@@ -35,12 +39,13 @@ class SerialSession:
         self.port = port.upper()
         self.cfg = cfg
         self.ser = None
-        self.rx_queue = queue.Queue()
         self._extra_queues = []
         self._extra_lock = threading.Lock()
         self._running = False
         self._read_thread = None
         self._write_lock = threading.Lock()
+        self._error_event = threading.Event()
+        self._error = None
 
     def subscribe(self):
         q = queue.Queue()
@@ -52,6 +57,13 @@ class SerialSession:
         with self._extra_lock:
             if q in self._extra_queues:
                 self._extra_queues.remove(q)
+
+    @property
+    def error(self):
+        return self._error
+
+    def wait_error(self, timeout=None):
+        return self._error_event.wait(timeout=timeout)
 
     def open(self):
         kwargs = dict(
@@ -74,22 +86,26 @@ class SerialSession:
             raise SerialPortError(f"Cannot open {self.port}: {e}")
 
         self._running = True
-        self._read_thread = threading.Thread(target=self._read_loop, daemon=True)
+        self._read_thread = threading.Thread(
+            target=self._read_loop, daemon=True)
         self._read_thread.start()
 
     def _read_loop(self):
         while self._running:
             try:
                 data = self.ser.read(256)
-                if data:
-                    self.rx_queue.put(data)
-                    with self._extra_lock:
-                        extras = list(self._extra_queues)
-                    for q in extras:
-                        q.put(data)
             except Exception as e:
-                log.error("Serial %s read error: %s", self.port, e, exc_info=True)
+                log.error("Serial %s read error: %s",
+                          self.port, e, exc_info=True)
+                self._error = e
+                self._error_event.set()
                 break
+            if not data:
+                continue
+            with self._extra_lock:
+                extras = list(self._extra_queues)
+            for q in extras:
+                q.put(data)
 
     def send_raw(self, data):
         if not self.ser or not self.ser.is_open:
@@ -99,7 +115,8 @@ class SerialSession:
                 self.ser.write(data)
                 return True
             except Exception as e:
-                log.error("Serial %s write error: %s", self.port, e, exc_info=True)
+                log.error("Serial %s write error: %s",
+                          self.port, e, exc_info=True)
                 return False
 
     def close(self):
